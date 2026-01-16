@@ -10,7 +10,7 @@ class GDrive {
             const id = this.extractId(url);
             if (!id) throw new Error("Invalid URL");
 
-            // 1. File Details (Name/Size)
+            // 1. ගොනුවේ නම සහ ප්‍රමාණය ලබා ගැනීම
             let details = { name: "File", size: "N/A", mime: "application/octet-stream" };
             try {
                 const { data: m } = await axios.get(`https://www.googleapis.com/drive/v3/files/${id}`, {
@@ -21,29 +21,25 @@ class GDrive {
                 details.mime = m.mimeType;
             } catch (e) {}
 
-            // 2. Getting the RAW Redirect Link (Fresh UserContent with UUID)
-            // අපි confirm=t පාවිච්චි කරලා raw ලින්ක් එක ඉල්ලනවා
+            // 2. Fresh Direct Download Link එක Capture කිරීම
+            // 'confirm=t' සමඟ request එක යැවූ විට Google විසින් uuid සහිත සම්පූර්ණ ලින්ක් එකකට අපව redirect කරයි.
             const base = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
             
             let finalDownloadUrl = base;
 
-            try {
-                // Axios වෙනුවට මෙතනට native 'fetch' පාවිච්චි කරනවා redirect එක හරියටම අල්ලන්න
-                const res = await fetch(base, {
-                    method: 'GET',
-                    redirect: 'manual', // මේකෙන් තමයි redirect එක නවත්තලා ලින්ක් එක අල්ලන්නේ
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                });
-
-                // Google එකෙන් එවන සම්පූර්ණ fresh ලින්ක් එක (uuid සහිතව) මෙතන තියෙනවා
-                const location = res.headers.get('location');
-                if (location) {
-                    finalDownloadUrl = location;
+            // අපි fetch පාවිච්චි කරලා redirect එක manual කරනවා, එවිට අපිට සම්පූර්ණ ලින්ක් එක අල්ලගන්න පුළුවන්.
+            const res = await fetch(base, {
+                method: 'GET',
+                redirect: 'manual',
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 }
-            } catch (err) {
-                console.log("Redirect capture failed");
+            });
+
+            // Google එකෙන් ලැබෙන fresh redirect ලින්ක් එක (uuid සහිත එක)
+            const location = res.headers.get('location');
+            if (location) {
+                finalDownloadUrl = location;
             }
 
             return {
@@ -54,7 +50,7 @@ class GDrive {
                     fileName: details.name,
                     fileSize: details.size,
                     mimetype: details.mime,
-                    downloadUrl: finalDownloadUrl // දැන් මෙතනට අර දිග uuid ලින්ක් එක එනවා
+                    downloadUrl: finalDownloadUrl // මෙතනට දැන් ඔයා ඉල්ලපු uuid සහිත ලින්ක් එක එනවා
                 }
             };
         } catch (e) {
