@@ -10,45 +10,54 @@ class GDrive {
             const id = this.extractId(url);
             if (!id) throw new Error("Invalid URL");
 
-            // 1. ගොනුවේ විස්තර ලබාගැනීම
-            let details = { name: "File", size: "N/A", mime: "application/octet-stream" };
+            // 1. ගොනුවේ නම සහ විස්තර ලබාගැනීම
+            let info = { name: "File", size: "N/A", mime: "application/octet-stream" };
             try {
                 const { data: m } = await axios.get(`https://www.googleapis.com/drive/v3/files/${id}`, {
                     params: { key: this.k, fields: "name,mimeType,size" }
                 });
-                details.name = m.name;
-                details.size = m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A";
-                details.mime = m.mimeType;
+                info.name = m.name;
+                info.size = m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A";
+                info.mime = m.mimeType;
             } catch (e) {}
 
-            // 2. uuid එක සහ confirm token එක සහිත Fresh ලින්ක් එක ලබාගැනීම
-            const base = `https://drive.google.com/uc?export=download&id=${id}`;
+            // 2. Fresh UserContent Link එක අල්ලගැනීම (The Hard Way)
+            const downloadPageUrl = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
             
-            // මුලින්ම cookie එක ලබාගැනීමට request එකක් යවනවා
-            const firstRes = await fetch(base, { method: 'GET' });
-            const cookie = firstRes.headers.get('set-cookie');
+            let finalLink = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
 
-            // දැන් එම cookie එක පාවිච්චි කරලා uuid ලින්ක් එක අල්ලගන්නවා
-            const finalRes = await fetch(`${base}&confirm=t`, {
-                method: 'GET',
-                redirect: 'manual',
-                headers: {
-                    'cookie': cookie || '',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            try {
+                const res = await axios.get(downloadPageUrl, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                        'Accept-Language': 'en-US,en;q=0.5',
+                        'Connection': 'keep-alive',
+                        'Upgrade-Insecure-Requests': '1'
+                    },
+                    maxRedirects: 0, // මෙතනින් තමයි redirect එක නවත්වන්නේ
+                    validateStatus: (status) => status >= 200 && status < 400
+                });
+
+                if (res.headers.location) {
+                    finalLink = res.headers.location;
                 }
-            });
-
-            const finalDownloadUrl = finalRes.headers.get('location') || `${base}&confirm=t`;
+            } catch (err) {
+                // Axios 302 එකක් ආවොත් ඒක error එකක් විදියට පෙන්වනවා, එතනිනුත් ලින්ක් එක ගන්නවා
+                if (err.response && err.response.headers.location) {
+                    finalLink = err.response.headers.location;
+                }
+            }
 
             return {
                 creator: "Hansa Dewmina",
                 status: 200,
                 success: true,
                 result: {
-                    fileName: details.name,
-                    fileSize: details.size,
-                    mimetype: details.mime,
-                    downloadUrl: finalDownloadUrl // දැන් මෙතනට uuid සහ confirm=t සහිත ලින්ක් එක ලැබෙයි
+                    fileName: info.name,
+                    fileSize: info.size,
+                    mimetype: info.mime,
+                    downloadUrl: finalLink // දැන් මෙතනට ඔයා ඉල්ලන දිග ලින්ක් එක එයි
                 }
             };
         } catch (e) {
