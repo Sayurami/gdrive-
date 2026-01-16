@@ -10,7 +10,7 @@ class GDrive {
             const id = this.extractId(url);
             if (!id) throw new Error("Invalid URL");
 
-            // 1. ගොනුවේ නම සහ ප්‍රමාණය ලබා ගැනීම
+            // 1. ගොනුවේ විස්තර ලබාගැනීම
             let details = { name: "File", size: "N/A", mime: "application/octet-stream" };
             try {
                 const { data: m } = await axios.get(`https://www.googleapis.com/drive/v3/files/${id}`, {
@@ -21,26 +21,24 @@ class GDrive {
                 details.mime = m.mimeType;
             } catch (e) {}
 
-            // 2. Fresh Direct Download Link එක Capture කිරීම
-            // 'confirm=t' සමඟ request එක යැවූ විට Google විසින් uuid සහිත සම්පූර්ණ ලින්ක් එකකට අපව redirect කරයි.
-            const base = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
+            // 2. uuid එක සහ confirm token එක සහිත Fresh ලින්ක් එක ලබාගැනීම
+            const base = `https://drive.google.com/uc?export=download&id=${id}`;
             
-            let finalDownloadUrl = base;
+            // මුලින්ම cookie එක ලබාගැනීමට request එකක් යවනවා
+            const firstRes = await fetch(base, { method: 'GET' });
+            const cookie = firstRes.headers.get('set-cookie');
 
-            // අපි fetch පාවිච්චි කරලා redirect එක manual කරනවා, එවිට අපිට සම්පූර්ණ ලින්ක් එක අල්ලගන්න පුළුවන්.
-            const res = await fetch(base, {
+            // දැන් එම cookie එක පාවිච්චි කරලා uuid ලින්ක් එක අල්ලගන්නවා
+            const finalRes = await fetch(`${base}&confirm=t`, {
                 method: 'GET',
                 redirect: 'manual',
                 headers: {
+                    'cookie': cookie || '',
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                 }
             });
 
-            // Google එකෙන් ලැබෙන fresh redirect ලින්ක් එක (uuid සහිත එක)
-            const location = res.headers.get('location');
-            if (location) {
-                finalDownloadUrl = location;
-            }
+            const finalDownloadUrl = finalRes.headers.get('location') || `${base}&confirm=t`;
 
             return {
                 creator: "Hansa Dewmina",
@@ -50,7 +48,7 @@ class GDrive {
                     fileName: details.name,
                     fileSize: details.size,
                     mimetype: details.mime,
-                    downloadUrl: finalDownloadUrl // මෙතනට දැන් ඔයා ඉල්ලපු uuid සහිත ලින්ක් එක එනවා
+                    downloadUrl: finalDownloadUrl // දැන් මෙතනට uuid සහ confirm=t සහිත ලින්ක් එක ලැබෙයි
                 }
             };
         } catch (e) {
