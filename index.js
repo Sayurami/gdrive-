@@ -1,4 +1,4 @@
-const axios = require("axios");
+import axios from "axios";
 
 class GDrive {
     constructor() {
@@ -17,19 +17,17 @@ class GDrive {
                 }
             });
 
-            // Google Drive Direct Download Link එක (confirm=t මගින් virus warning එක bypass කරයි)
             const directDownload = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
 
-            // ඔයාට අවශ්‍ය විදියට JSON format එක මෙතනදී හදනවා
             return {
-                creator: "Hansa Dewmina", // ඔයාට අවශ්‍ය නම මෙතනට දාන්න
+                creator: "Hansa Dewmina",
                 status: 200,
                 success: true,
                 result: {
                     fileName: m.name,
                     fileSize: m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A",
                     mimetype: m.mimeType,
-                    downloadUrl: directDownload // මේක තමයි කෙලින්ම ලැබෙන ලින්ක් එක
+                    downloadUrl: directDownload
                 }
             };
         } catch (e) {
@@ -43,18 +41,16 @@ class GDrive {
     }
 }
 
-// Vercel Handler
-module.exports = async (req, res) => {
+// Vercel Handler (ES Module Export)
+export default async function handler(req, res) {
     const { url } = req.query;
     if (!url) return res.status(400).json({ success: false, message: "URL required" });
 
     try {
         const gdrive = new GDrive();
         const response = await gdrive.getDetails(url);
-        
-        // කෙලින්ම JSON එක response එක විදියට යවනවා
         return res.status(200).json(response);
     } catch (err) {
         return res.status(500).json({ success: false, error: err.message });
     }
-};
+}
