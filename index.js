@@ -2,6 +2,7 @@ import axios from "axios";
 
 class GDrive {
     constructor() {
+        // API Key eka
         this.k = "AIzaSyAA9ERw-9LZVEohRYtCWka_TQc6oXmvcVU";
     }
 
@@ -17,7 +18,9 @@ class GDrive {
                 }
             });
 
-            const directDownload = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
+            // Oyaata onima karana direct usercontent link format eka
+            // Mehi uuid eka random hadana ekak nisa, samanya download ekakata id saha confirm thibunaama athi.
+            const directDownload = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
 
             return {
                 creator: "Hansa Dewmina",
@@ -27,11 +30,11 @@ class GDrive {
                     fileName: m.name,
                     fileSize: m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A",
                     mimetype: m.mimeType,
-                    downloadUrl: directDownload
+                    downloadUrl: directDownload 
                 }
             };
         } catch (e) {
-            throw new Error(e.message);
+            throw new Error(e.response?.data?.error?.message || e.message);
         }
     }
 
@@ -41,7 +44,6 @@ class GDrive {
     }
 }
 
-// Vercel Handler (ES Module Export)
 export default async function handler(req, res) {
     const { url } = req.query;
     if (!url) return res.status(400).json({ success: false, message: "URL required" });
