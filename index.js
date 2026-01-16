@@ -21,21 +21,21 @@ class GDrive {
                 info.mime = m.mimeType;
             } catch (e) {}
 
-            // 2. Fresh UserContent Link එක අල්ලගැනීම (The Hard Way)
+            // 2. Fresh UserContent Link එක අල්ලගැනීම
+            // අපි confirm=t දාලා ලින්ක් එක ඉල්ලනවා
             const downloadPageUrl = `https://drive.google.com/uc?export=download&id=${id}&confirm=t`;
             
-            let finalLink = `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`;
+            let finalLink = downloadPageUrl;
 
             try {
+                // Browser එකකින් යනවා වගේ Headers සෙට් කරන්න ඕනේ
                 const res = await axios.get(downloadPageUrl, {
                     headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.5',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1'
+                        'Referer': 'https://drive.google.com/'
                     },
-                    maxRedirects: 0, // මෙතනින් තමයි redirect එක නවත්වන්නේ
+                    maxRedirects: 0, // මේකෙන් තමයි redirect එක නවත්වලා අලුත් ලින්ක් එක අල්ලන්නේ
                     validateStatus: (status) => status >= 200 && status < 400
                 });
 
@@ -43,7 +43,7 @@ class GDrive {
                     finalLink = res.headers.location;
                 }
             } catch (err) {
-                // Axios 302 එකක් ආවොත් ඒක error එකක් විදියට පෙන්වනවා, එතනිනුත් ලින්ක් එක ගන්නවා
+                // Axios 302/303 redirect එකක් ආවොත් ඒක catch කරලා ලින්ක් එක ගන්නවා
                 if (err.response && err.response.headers.location) {
                     finalLink = err.response.headers.location;
                 }
@@ -57,7 +57,7 @@ class GDrive {
                     fileName: info.name,
                     fileSize: info.size,
                     mimetype: info.mime,
-                    downloadUrl: finalLink // දැන් මෙතනට ඔයා ඉල්ලන දිග ලින්ක් එක එයි
+                    downloadUrl: finalLink // දැන් මෙතනට ඔයා ඉල්ලන දිග uuid/confirm සහිත ලින්ක් එක එයි
                 }
             };
         } catch (e) {
