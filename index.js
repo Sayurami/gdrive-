@@ -10,21 +10,21 @@ class GDrive {
             const id = this.extractId(url);
             if (!id) throw new Error("Invalid URL");
 
-            // 1. File Details ලබාගැනීම
-            let info = { name: "File", size: "N/A", mime: "video/mp4" };
+            // 1. File Details (Name/Size)
+            let details = { name: "File", size: "N/A", mime: "video/mp4" };
             try {
                 const { data: m } = await axios.get(`https://www.googleapis.com/drive/v3/files/${id}`, {
                     params: { key: this.k, fields: "name,mimeType,size" }
                 });
-                info.name = m.name;
-                info.size = m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A";
-                info.mime = m.mimeType;
+                details.name = m.name;
+                details.size = m.size ? `${(m.size / 1024 / 1024).toFixed(2)} MB` : "N/A";
+                details.mime = m.mimeType;
             } catch (e) {}
 
-            // 2. Fresh UUID සහිත ලින්ක් එක ලබාගැනීම
+            // 2. Fresh UUID එක සහිත ලින්ක් එක බලෙන්ම අල්ලගැනීම
             const base = `https://drive.google.com/uc?export=download&id=${id}`;
             
-            // පියවර 1: මුලින්ම Cookie එක ලබාගැනීමට Request එකක් යවනවා
+            // මුලින්ම Google එකට ගිහින් Cookie එක අරගන්නවා
             const firstRes = await axios.get(base, {
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
@@ -32,8 +32,8 @@ class GDrive {
             });
             const cookie = firstRes.headers['set-cookie'];
 
-            // පියවර 2: ඒ Cookie එක පාවිච්චි කරලා uuid එක සහිත Redirect ලින්ක් එක අල්ලගන්නවා
-            let finalDownloadUrl = `${base}&confirm=t`;
+            // දැන් ඒ Cookie එක පාවිච්චි කරලා uuid සහිත ලින්ක් එකට Redirect වෙන එක අල්ලනවා
+            let finalLink = `${base}&confirm=t`;
             try {
                 const finalRes = await axios.get(`${base}&confirm=t`, {
                     headers: {
@@ -41,17 +41,17 @@ class GDrive {
                         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                         'Referer': base
                     },
-                    maxRedirects: 0,
+                    maxRedirects: 0, // Redirect එක නවත්වලා ලින්ක් එක විතරක් ගන්නවා
                     validateStatus: (status) => status >= 200 && status < 400
                 });
                 
                 if (finalRes.headers.location) {
-                    finalDownloadUrl = finalRes.headers.location;
+                    finalLink = finalRes.headers.location;
                 }
             } catch (err) {
-                // Axios 302 Found error එකක් විදියට දෙන නිසා catch එකේදීත් location එක බලනවා.
-                if (err.response && err.response.headers && err.response.headers.location) {
-                    finalDownloadUrl = err.response.headers.location;
+                // Axios 302 එකක් ආවොත් location එක මෙතන තියෙනවා
+                if (err.response && err.response.headers.location) {
+                    finalLink = err.response.headers.location;
                 }
             }
 
@@ -60,10 +60,10 @@ class GDrive {
                 status: 200,
                 success: true,
                 result: {
-                    fileName: info.name,
-                    fileSize: info.size,
-                    mimetype: info.mime,
-                    downloadUrl: finalDownloadUrl // මෙතනට දැන් uuid/at සහිත ලින්ක් එක එනවා
+                    fileName: details.name,
+                    fileSize: details.size,
+                    mimetype: details.mime,
+                    downloadUrl: finalLink 
                 }
             };
         } catch (e) {
